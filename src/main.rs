@@ -16,6 +16,47 @@ use tui::{
 
 //=============
 
+pub struct StatefulTable<'a> {
+    state: TableState,
+    items: Vec<Vec<&'a str>>,
+}
+
+impl<'a> StatefulTable<'a> {
+    fn new(s: Vec<Vec<&'a str>>) -> StatefulTable<'a> {
+        StatefulTable {
+            state: TableState::default(),
+            items: s,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+}
 //=============
 
 fn main() -> Result<(), io::Error> {
@@ -28,6 +69,9 @@ fn main() -> Result<(), io::Error> {
     //缓冲区
     let mut buf = async_stdin();
 
+    //菜单结构体初始化
+    let mut menu_list = StatefulTable::new(vec![vec!["list1"], vec!["list2"], vec!["list3"]]);
+
     terminal.clear()?;
     loop {
         terminal.draw(|f| {
@@ -35,24 +79,22 @@ fn main() -> Result<(), io::Error> {
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Min(2), Constraint::Percentage(80)].as_ref())
                 .split(f.size());
-            //
+
             let text = Text::from(format!("rust-TUI-hello\n{:?}", SystemTime::now()));
-            //text.patch_style(Style::default().add_modifier(Modifier::RAPID_BLINK));
             f.render_widget(
                 Paragraph::new(text).style(Style::default().bg(Color::White).fg(Color::Black)),
                 chunks0[0],
             );
-            //
+
             let chunks1 = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
                 .split(chunks0[1]);
 
-            let block = Block::default().title("选项").borders(Borders::ALL);
+            let block = Block::default().title("菜单").borders(Borders::ALL);
             f.render_widget(block, chunks1[0]);
 
-            let choose_list = [["list1"], ["list2"], ["list3"]];
-            let choose_rows = choose_list.iter().map(|l| {
+            let menu_rows = menu_list.items.iter().map(|l| {
                 let height = l
                     .iter()
                     .map(|content| content.chars().filter(|c| *c == '\n').count())
@@ -62,7 +104,8 @@ fn main() -> Result<(), io::Error> {
                 let cells = l.iter().map(|c| Cell::from(*c));
                 Row::new(cells).height(height as u16).bottom_margin(1)
             });
-            let t = Table::new(choose_rows)
+
+            let t = Table::new(menu_rows)
                 .block(Block::default().borders(Borders::ALL).title("Table"))
                 .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
                 .highlight_symbol(">> ")
@@ -71,7 +114,7 @@ fn main() -> Result<(), io::Error> {
                     Constraint::Length(30),
                     Constraint::Max(10),
                 ]);
-            f.render_stateful_widget(t, chunks1[0], &mut TableState::default());
+            f.render_stateful_widget(t, chunks1[0], &mut menu_list.state);
 
             let block = Block::default().borders(Borders::ALL);
             f.render_widget(block, chunks1[1]);
@@ -82,6 +125,12 @@ fn main() -> Result<(), io::Error> {
                 Key::Char('q') => {
                     terminal.clear()?;
                     return Ok(());
+                }
+                Key::Down => {
+                    menu_list.next();
+                }
+                Key::Up => {
+                    menu_list.previous();
                 }
                 _ => (),
             }
