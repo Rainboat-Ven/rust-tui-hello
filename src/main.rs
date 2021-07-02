@@ -17,11 +17,6 @@ use tui::{
     Terminal,
 };
 
-//=============
-
-
-//=============
-
 fn main() -> Result<(), io::Error> {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -34,26 +29,45 @@ fn main() -> Result<(), io::Error> {
 
     //菜单结构体初始化
     let mut menu_list = StatefulTable::new(vec![vec!["list1"], vec!["list2"], vec!["list3"]]);
+    menu_list.state.select(Some(0));
 
     terminal.clear()?;
     loop {
         terminal.draw(|f| {
             let chunks0 = Layout::default()
+                .margin(1)
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Min(2), Constraint::Percentage(80)].as_ref())
+                .constraints(
+                    [
+                        Constraint::Length(2),
+                        Constraint::Percentage(80),
+                        Constraint::Length(1),
+                    ]
+                    .as_ref(),
+                )
                 .split(f.size());
 
-            let text = Text::from(format!("rust-TUI-hello\n{:?}", SystemTime::now()));
+            //标题部分绘制
+            let text = Text::from("rust-TUI-hello");
             f.render_widget(
-                Paragraph::new(text).style(Style::default().bg(Color::White).fg(Color::Black)),
+                Paragraph::new(text).style(Style::default().add_modifier(Modifier::BOLD)),
                 chunks0[0],
             );
 
+            //操作提示部分绘制
+            let text = Text::from("按q退出");
+            f.render_widget(
+                Paragraph::new(text).style(Style::default().bg(Color::White).fg(Color::Black)),
+                chunks0[2],
+            );
+
+            //主体部分子布局
             let chunks1 = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
                 .split(chunks0[1]);
 
+            //菜单绘制
             let block = Block::default().title("菜单").borders(Borders::ALL);
             f.render_widget(block, chunks1[0]);
 
@@ -69,7 +83,7 @@ fn main() -> Result<(), io::Error> {
             });
 
             let t = Table::new(menu_rows)
-                .block(Block::default().borders(Borders::ALL).title("Table"))
+                .block(Block::default().borders(Borders::ALL).title("菜单"))
                 .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
                 .highlight_symbol(">> ")
                 .widths(&[
